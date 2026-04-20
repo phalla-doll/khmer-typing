@@ -1,9 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Volume2, Trophy, RotateCcw, Smile, User, Clock, ChevronRight } from 'lucide-react';
+import { Volume2, Trophy, RotateCcw, Smile, User, Clock, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'motion/react';
+
+const MOCK_LEADERBOARD = [
+  { rank: 1, name: "typing_god", wpm: 154, acc: 99 },
+  { rank: 2, name: "fast_fingers", wpm: 142, acc: 96 },
+  { rank: 3, name: "qwerty_ninja", wpm: 138, acc: 98 },
+  { rank: 4, name: "guest_8921", wpm: 125, acc: 94 },
+  { rank: 5, name: "speed_demon", wpm: 119, acc: 100 },
+];
 
 const WORD_LISTS = {
   easy: "the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us".split(" "),
@@ -87,6 +95,7 @@ export default function Home() {
   const [timeLeft, setTimeLeft] = useState(15);
   const [isActive, setIsActive] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
 
@@ -350,7 +359,10 @@ export default function Home() {
           <button className="flex items-center justify-center w-10 h-10 rounded-full bg-[#E8E4DE] hover:bg-[#DDD9D2] border border-transparent hover:border-[#D1CEC8] shadow-sm outline-none active:scale-[0.98] transition-all duration-300">
             <Volume2 className="w-[18px] h-[18px] text-[#434343]/80" strokeWidth={2.5} />
           </button>
-          <button className="px-5 py-2 rounded-full bg-[#E8E4DE] hover:bg-[#DDD9D2] border border-transparent hover:border-[#D1CEC8] text-[13px] tracking-wide text-[#434343] font-bold active:scale-[0.98] transition-all duration-300 flex items-center gap-2 shadow-sm">
+          <button 
+            onClick={() => setShowLeaderboard(true)}
+            className="px-5 py-2 rounded-full bg-[#E8E4DE] hover:bg-[#DDD9D2] border border-transparent hover:border-[#D1CEC8] text-[13px] tracking-wide text-[#434343] font-bold active:scale-[0.98] transition-all duration-300 flex items-center gap-2 shadow-sm"
+          >
             <Trophy className="w-4 h-4 text-[#434343]/80" />
             Leaderboards
           </button>
@@ -476,6 +488,73 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* Leaderboard Modal */}
+      <AnimatePresence>
+        {showLeaderboard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#F5F2ED]/60 backdrop-blur-md"
+            onClick={() => setShowLeaderboard(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-[#F5F2ED] w-full max-w-lg rounded-[2rem] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.15)] overflow-hidden border border-[#D1CEC8]/60"
+            >
+              <div className="p-6 border-b border-[#D1CEC8]/50 flex items-center justify-between bg-white/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#8A9A5B]/10 flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-[#8A9A5B]" />
+                  </div>
+                  <div>
+                    <h2 className="text-[#434343] font-bold text-xl tracking-tight leading-none mb-1">Leaderboards</h2>
+                    <div className="text-xs text-[#434343]/50 font-medium tracking-wide uppercase">Global Top Typists</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowLeaderboard(false)} 
+                  className="p-2.5 bg-[#E8E4DE] rounded-full text-[#434343]/50 hover:text-[#434343] hover:bg-[#DDD9D2] active:scale-95 transition-all outline-none"
+                >
+                  <X className="w-4 h-4" strokeWidth={3} />
+                </button>
+              </div>
+              
+              <div className="p-3">
+                {MOCK_LEADERBOARD.map((user) => (
+                  <div key={user.rank} className="flex items-center justify-between p-4 hover:bg-[#E8E4DE]/50 rounded-2xl transition-colors group">
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-sm", 
+                        user.rank === 1 ? "bg-[#8A9A5B] text-white shadow-[#8A9A5B]/20" : 
+                        user.rank === 2 ? "bg-[#BCB7AF] text-white" : 
+                        user.rank === 3 ? "bg-[#D2A76B] text-white" : 
+                        "bg-[#E8E4DE] text-[#434343]/50"
+                      )}>
+                        {user.rank}
+                      </div>
+                      <div className="font-bold text-[#434343] group-hover:text-[#8A9A5B] transition-colors">{user.name}</div>
+                    </div>
+                    <div className="flex items-center gap-8">
+                      <div className="text-right">
+                        <div className="font-bold text-[#8A9A5B] text-lg leading-none">{user.wpm} <span className="text-xs text-[#434343]/40 font-semibold tracking-wide">WPM</span></div>
+                      </div>
+                      <div className="text-right w-12">
+                        <div className="font-bold text-[#434343]">{user.acc}<span className="text-[#434343]/40">%</span></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
