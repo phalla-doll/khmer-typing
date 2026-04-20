@@ -20,6 +20,30 @@ const generateText = (difficulty: 'easy' | 'medium' | 'hard', length: number = 7
   return text.trim();
 };
 
+const getKeyCoords = (char: string) => {
+  if (char === ' ') return [{ x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 3 }, { x: 5, y: 3 }, { x: 6, y: 3 }];
+  const rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm,."];
+  const c = char.toLowerCase();
+  for (let y = 0; y < rows.length; y++) {
+    const x = rows[y].indexOf(c);
+    if (x !== -1) return [{ x, y }];
+  }
+  return [];
+};
+
+const isAdjacent = (char1: string, char2: string) => {
+  // If either char isn't mapped, fail
+  const p1s = getKeyCoords(char1);
+  const p2s = getKeyCoords(char2);
+  for (const p1 of p1s) {
+    for (const p2 of p2s) {
+      // Direct adjacency metric
+      if (Math.abs(p1.x - p2.x) <= 1 && Math.abs(p1.y - p2.y) <= 1) return true;
+    }
+  }
+  return false;
+};
+
 function MagneticWrapper({ children }: { children: React.ReactNode }) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -59,6 +83,7 @@ export default function Home() {
   const [targetText, setTargetText] = useState("");
   const [timeLimit, setTimeLimit] = useState(15);
   const [input, setInput] = useState("");
+  const [graceErrors, setGraceErrors] = useState<Record<number, boolean>>({});
   const [timeLeft, setTimeLeft] = useState(15);
   const [isActive, setIsActive] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
@@ -77,6 +102,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    setGraceErrors({});
     setTargetText(generateText(difficulty));
     setTimeLeft(timeLimit);
     setIsActive(false);
@@ -87,6 +113,7 @@ export default function Home() {
   }, [timeLimit, difficulty]);
 
   const reset = () => {
+    setGraceErrors({});
     setTargetText(generateText(difficulty));
     setInput("");
     setTimeLeft(timeLimit);
@@ -113,13 +140,35 @@ export default function Home() {
       }
 
       if (key === 'Backspace') {
-        setInput((prev) => prev.slice(0, -1));
+        setInput((prev) => {
+          const next = prev.slice(0, -1);
+          setGraceErrors((g) => {
+            const newG = { ...g };
+            delete newG[next.length];
+            return newG;
+          });
+          return next;
+        });
         return;
       }
 
       if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         // Prevent typing past the length
         if (input.length < targetText.length) {
+          const targetChar = targetText[input.length];
+          const currentIndex = input.length;
+
+          if (key !== targetChar && isAdjacent(targetChar, key)) {
+            setGraceErrors((prev) => ({ ...prev, [currentIndex]: true }));
+            setTimeout(() => {
+              setGraceErrors((prev) => {
+                const next = { ...prev };
+                delete next[currentIndex];
+                return next;
+              });
+            }, 500); // 500ms grace window
+          }
+
           setInput((prev) => prev + key);
         } else if (input.length === targetText.length && key === ' ') {
           setIsFinished(true);
@@ -148,7 +197,8 @@ export default function Home() {
     if (input.length > 0) {
       let correctChars = 0;
       for (let i = 0; i < input.length; i++) {
-        if (input[i] === targetText[i]) {
+        // Forgive buffered errors inside timing block so WPM does not drop
+        if (input[i] === targetText[i] || graceErrors[i]) {
           correctChars++;
         }
       }
@@ -166,7 +216,7 @@ export default function Home() {
       setAccuracy(100);
       setWpm(0);
     }
-  }, [input, timeLeft, timeLimit, targetText]);
+  }, [input, timeLeft, timeLimit, targetText, graceErrors]);
 
   // Handle focus loss/gain to make sure we keep focus for typing
   useEffect(() => {
@@ -191,7 +241,13 @@ export default function Home() {
             const index = globalIndex++;
             let state = 'untyped';
             if (index < input.length) {
-              state = input[index] === char ? 'correct' : 'incorrect';
+              if (input[index] === char) {
+                state = 'correct';
+              } else if (graceErrors[index]) {
+                state = 'grace';
+              } else {
+                state = 'incorrect';
+              }
             }
             
             const isCursor = index === input.length;
@@ -203,6 +259,7 @@ export default function Home() {
                   "relative transition-colors duration-100",
                   state === 'untyped' && "text-[#BCB7AF]", // untyped characters
                   state === 'correct' && "text-[#434343]", // core color
+                  state === 'grace' && "text-[#D2A76B] bg-[#D2A76B]/20 rounded-[2px]", // Amber forgiving buffer
                   state === 'incorrect' && "text-[#D27D6B] bg-[#D27D6B]/20 rounded-[2px]" // harsh visual error
                 )}
               >
@@ -224,12 +281,18 @@ export default function Home() {
             const index = globalIndex++;
             let state = 'untyped';
             if (index < input.length) {
-              state = input[index] === ' ' ? 'correct' : 'incorrect';
+              if (input[index] === ' ') {
+                state = 'correct';
+              } else if (graceErrors[index]) {
+                state = 'grace';
+              } else {
+                state = 'incorrect';
+              }
             }
             const isCursor = index === input.length;
 
             // Display what the user incorrectly typed instead of an invisible space
-            const displayChar = state === 'incorrect' ? input[index] : " ";
+            const displayChar = (state === 'incorrect' || state === 'grace') ? input[index] : " ";
 
             return (
               <span
@@ -238,6 +301,7 @@ export default function Home() {
                   "relative transition-colors duration-100",
                   state === 'untyped' && "text-[#BCB7AF]", 
                   state === 'correct' && "text-[#434343]",
+                  state === 'grace' && "text-[#D2A76B] bg-[#D2A76B]/20 rounded-[2px]", // Amber error buffer over space
                   state === 'incorrect' && "text-[#D27D6B] bg-[#D27D6B]/30 rounded-[2px]" // error over space
                 )}
               >
