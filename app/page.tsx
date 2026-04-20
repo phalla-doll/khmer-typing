@@ -201,9 +201,9 @@ export default function Home() {
                 key={index}
                 className={cn(
                   "relative transition-colors duration-100",
-                  state === 'untyped' && "text-[#BCB7AF]", // target light gray
-                  state === 'correct' && "text-[#434343]",
-                  state === 'incorrect' && "text-[#D27D6B] border-b-2 border-[#D27D6B]"
+                  state === 'untyped' && "text-[#BCB7AF]", // untyped characters
+                  state === 'correct' && "text-[#434343]", // core color
+                  state === 'incorrect' && "text-[#D27D6B] bg-[#D27D6B]/20 rounded-[2px]" // harsh visual error
                 )}
               >
                 {isCursor && (
@@ -228,14 +228,17 @@ export default function Home() {
             }
             const isCursor = index === input.length;
 
+            // Display what the user incorrectly typed instead of an invisible space
+            const displayChar = state === 'incorrect' ? input[index] : " ";
+
             return (
               <span
                 key={index}
                 className={cn(
                   "relative transition-colors duration-100",
-                  state === 'untyped' && "text-[#BCB7AF]",
+                  state === 'untyped' && "text-[#BCB7AF]", 
                   state === 'correct' && "text-[#434343]",
-                  state === 'incorrect' && "bg-[#D27D6B]/30" // highlight missed space
+                  state === 'incorrect' && "text-[#D27D6B] bg-[#D27D6B]/30 rounded-[2px]" // error over space
                 )}
               >
                 {isCursor && (
@@ -246,7 +249,7 @@ export default function Home() {
                     className="absolute left-[0px] bottom-[6px] top-[14px] w-[2px] bg-[#8A9A5B] rounded-full z-10" 
                   />
                 )}
-                {" "}
+                {displayChar}
               </span>
             );
           })()}
