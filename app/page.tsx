@@ -232,7 +232,7 @@ export default function Home() {
         
         {/* Top Info Bar */}
         <div className="flex items-end justify-between mb-8 opacity-90">
-          <div className="text-[#434343]/50 text-sm font-medium tracking-wide">Type to hear it</div>
+          <div className="text-[#434343]/50 text-sm font-medium tracking-wide">Start typing to begin...</div>
           <div className="flex items-center gap-6">
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-bold text-[#8A9A5B] tracking-tight">{timeLeft}</span>
