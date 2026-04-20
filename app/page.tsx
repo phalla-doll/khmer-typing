@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Volume2, Apple, RotateCcw, Smile, AppWindow } from 'lucide-react';
+import { Volume2, Trophy, RotateCcw, Smile, User, Clock, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 
-const TARGET_TEXT = "try hand learn page over old should want thought still eye than few last sea change would mean people who any";
+const TARGET_TEXT = "try hand learn page over old should want thought still eye than few last sea change would mean people who any group such form water point great very point set sentence help where state low point write line cause point those place great spell turn help follow back around look right point through form write same move right boy long open hand old right also same form around many write hand old water back turn those look spell form group many line through people mean text some time what thing your good make word then use out look just test typing test khmer run fast quickly speed accuracy over many try hand learn";
 
 function MagneticWrapper({ children }: { children: React.ReactNode }) {
   const x = useMotionValue(0);
@@ -42,6 +42,7 @@ function MagneticWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export default function Home() {
+  const [timeLimit, setTimeLimit] = useState(15);
   const [input, setInput] = useState("");
   const [timeLeft, setTimeLeft] = useState(15);
   const [isActive, setIsActive] = useState(false);
@@ -55,9 +56,18 @@ export default function Home() {
     containerRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    setTimeLeft(timeLimit);
+    setIsActive(false);
+    setIsFinished(false);
+    setInput("");
+    setWpm(0);
+    setAccuracy(100);
+  }, [timeLimit]);
+
   const reset = () => {
     setInput("");
-    setTimeLeft(15);
+    setTimeLeft(timeLimit);
     setIsActive(false);
     setIsFinished(false);
     setWpm(0);
@@ -124,7 +134,7 @@ export default function Home() {
       const acc = Math.round((correctChars / input.length) * 100);
       setAccuracy(acc);
 
-      const timeElapsed = 15 - timeLeft;
+      const timeElapsed = timeLimit - timeLeft;
       // WPM calculation only if time elapsed is somewhat reasonable to avoid Infinity
       if (timeElapsed > 0) {
         const currentWpm = Math.round((correctChars / 5) / (timeElapsed / 60));
@@ -134,7 +144,7 @@ export default function Home() {
       setAccuracy(100);
       setWpm(0);
     }
-  }, [input, timeLeft]);
+  }, [input, timeLeft, timeLimit]);
 
   // Handle focus loss/gain to make sure we keep focus for typing
   useEffect(() => {
@@ -189,7 +199,7 @@ export default function Home() {
       {/* Header */}
       <header className="w-full max-w-[1400px] px-8 py-6 flex items-center justify-between z-10">
         <div className="flex items-center gap-1.5 cursor-pointer">
-          <span className="text-[#8A9A5B] font-extrabold text-[26px] tracking-tight leading-none">keeby</span>
+          <span className="text-[#8A9A5B] font-extrabold text-[26px] tracking-tight leading-none">khmer typing</span>
           <div className="w-5 h-5 bg-[#8A9A5B] rounded-[5px] flex items-center justify-center -mt-0.5 shadow-sm">
             <Smile className="w-3.5 h-3.5 text-[#F5F2ED]" strokeWidth={3} />
           </div>
@@ -197,7 +207,7 @@ export default function Home() {
 
         <div className="hidden md:flex items-center gap-1.5 text-sm">
           <span className="text-[#434343] font-semibold">1,292,953</span>
-          <span className="text-[#434343]/50 font-medium tracking-wide">thocks and counting</span>
+          <span className="text-[#434343]/50 font-medium tracking-wide">tests completed</span>
         </div>
 
         <div className="flex items-center gap-3">
@@ -205,13 +215,13 @@ export default function Home() {
             <Volume2 className="w-[18px] h-[18px] text-[#434343]/80" strokeWidth={2.5} />
           </button>
           <button className="px-5 py-2 rounded-full bg-[#E8E4DE] hover:bg-[#DDD9D2] border border-transparent hover:border-[#D1CEC8] text-[13px] tracking-wide text-[#434343] font-bold active:scale-[0.98] transition-all duration-300 flex items-center gap-2 shadow-sm">
-            <AppWindow className="w-4 h-4 text-[#434343]/80" />
-            Try it
+            <Trophy className="w-4 h-4 text-[#434343]/80" />
+            Leaderboards
           </button>
           <MagneticWrapper>
             <button className="px-[22px] py-2 rounded-full bg-[#434343] border border-[#434343] text-[#F5F2ED] text-[13px] tracking-wide font-bold hover:bg-[#2A2A2A] active:scale-[0.98] transition-all duration-300 flex items-center gap-2 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
-              <Apple className="w-[17px] h-[17px] fill-current -mt-0.5" />
-              Download
+              <User className="w-[15px] h-[15px] fill-current" />
+              Profile
             </button>
           </MagneticWrapper>
         </div>
@@ -276,19 +286,21 @@ export default function Home() {
         {/* Bottom Controls */}
         <div className="flex items-center justify-between w-full mt-16 text-[13px] font-semibold tracking-wide">
           <div className="flex items-center gap-1.5 md:gap-4">
-            <div className="flex items-center gap-2.5 text-[#434343]/50 hover:text-[#434343] cursor-pointer transition-colors px-3 py-1.5 rounded-full hover:bg-[#E8E4DE]">
-              <div className="w-[11px] h-[11px] rounded-[3px] bg-[#D27D6B] shadow-inner" />
-              Gateron Red
-            </div>
-            {/* Active Pill */}
-            <div className="flex items-center gap-2.5 bg-[#E8E4DE] text-[#434343] px-4 py-2 rounded-full cursor-pointer shadow-sm border border-[#D1CEC8]">
-              <div className="w-[11px] h-[11px] rounded-[3px] bg-[#9A8B5B] shadow-inner border border-black/5" />
-              Alpaca
-            </div>
-            <div className="flex items-center gap-2.5 text-[#434343]/50 hover:text-[#434343] cursor-pointer transition-colors px-3 py-1.5 rounded-full hover:bg-[#E8E4DE]">
-              <div className="w-[11px] h-[11px] rounded-[3px] bg-[#E8E4DE] shadow-inner border border-[#D1CEC8]" />
-              Cream
-            </div>
+            {[15, 30, 60].map((t) => (
+              <div 
+                key={t}
+                onClick={() => setTimeLimit(t)}
+                className={cn(
+                  "flex items-center gap-2.5 px-4 py-2 flex-shrink-0 cursor-pointer rounded-full transition-all duration-300 shadow-sm border",
+                  timeLimit === t 
+                    ? "bg-[#E8E4DE] text-[#434343] border-[#D1CEC8]"
+                    : "text-[#434343]/50 border-transparent hover:text-[#434343] hover:bg-[#E8E4DE]/50"
+                )}
+              >
+                <Clock className={cn("w-[14px] h-[14px]", timeLimit === t ? "text-[#8A9A5B]" : "text-current")} />
+                {t}s
+              </div>
+            ))}
           </div>
           
           <div className="flex items-center gap-6">
@@ -297,12 +309,12 @@ export default function Home() {
               className="flex items-center gap-2 text-[#434343]/50 hover:text-[#434343] active:scale-[0.96] transition-all duration-300 font-semibold"
             >
               <RotateCcw className="w-3.5 h-3.5" strokeWidth={2.5} />
-              Restart
+              Reset Stats
             </button>
             <MagneticWrapper>
-              <button className="flex items-center gap-2 bg-[#434343] text-[#F5F2ED] px-6 py-3 rounded-full font-bold hover:bg-[#2A2A2A] active:scale-[0.98] transition-all duration-300 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.15)]">
-                <Apple className="w-[15px] h-[15px] fill-current" />
-                Get Keeby
+              <button onClick={reset} className="flex items-center gap-2 bg-[#434343] text-[#F5F2ED] px-6 py-3 rounded-full font-bold hover:bg-[#2A2A2A] active:scale-[0.98] transition-all duration-300 shadow-[0_8px_16px_-4px_rgba(0,0,0,0.15)]">
+                <ChevronRight className="w-[15px] h-[15px]" strokeWidth={3} />
+                Next Test
               </button>
             </MagneticWrapper>
           </div>
