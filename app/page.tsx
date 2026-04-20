@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Volume2, Trophy, RotateCcw, Smile, User, Clock, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'motion/react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { normalizeKhmer, deleteBackward } from 'khmer-segment';
 
 const MOCK_LEADERBOARD = [
   { rank: 1, name: "typing_god", wpm: 154, acc: 99 },
@@ -14,9 +16,9 @@ const MOCK_LEADERBOARD = [
 ];
 
 const WORD_LISTS = {
-  easy: "the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us".split(" "),
-  medium: "try hand learn page over old should want thought still eye than few last sea change would mean people who any group such form water point great very point set sentence help where state low point write line cause point those place great spell turn help follow back around look right point through form write same move right boy long open hand old right also same form around many write hand old water back turn those look spell form group many line through people mean text some time what thing your good make word then use out look just test typing test khmer run fast quickly speed accuracy over many try hand learn".split(" "),
-  hard: "algorithm asynchronous callback function recursive iteration loop object-oriented programming polymorphism inheritance encapsulation version control repository checkout continuous integration deployment pipeline containerization orchestration kubernetes replicas balancer injection vulnerability cross-site vulnerable endpoints architecture network hidden layers quantum computing superposition entanglement concurrency threading deadlocks algorithms optimization heuristic database schema migration normalization transactions rollback commit indexing querying fetching parsing rendering serialization encryption decryption authentication authorization middleware interceptors microservices modularity paradigms semantics typography semantics".split(" ")
+  easy: "ខ្ញុំ អ្នក យើង គេ គាត់ ទៅ មក ញ៉ាំ បាយ ទឹក ផ្ទះ ល្អ មិន ទេ ដែល ថា មាន បាន និង ធ្វើ ការ ក្នុង មួយ ពី ដោយ នឹង ទី ជា អី ណា អ្នកណា ពេល ចង់ ត្រូវ ចេះ ចូល ចេញ ចុះ ឡើង លេង មើល ឃើញ ស្តាប់ ឮ សួរ ឆ្លើយ ដឹង គិត សរសេរ អាន រៀន".split(" "),
+  medium: "សាលារៀន គ្រូបង្រៀន សិស្ស ប្រទេស កម្ពុជា សប្បាយចិត្ត ស្រឡាញ់ គ្រួសារ អរគុណ សួស្តី ការងារ បទពិសោធន៍ មហាវិទ្យាល័យ អនាគត ជីវិត សត្វ សមុទ្រ មេឃ ភ្លៀង ថ្ងៃនេះ ម្សិលមិញ ថ្ងៃស្អែក ឥឡូវនេះ ក្រុមហ៊ុន បច្ចេកវិទ្យា ព័ត៌មាន កុំព្យូទ័រ ទូរស័ព្ទ អ៊ីនធឺណិត សង្គម ទំនាក់ទំនង ពេលវេលា សំខាន់ បញ្ហា ដោះស្រាយ សេចក្តី ប្រាថ្នា".split(" "),
+  hard: "ព្រះរាជាណាចក្រកម្ពុជា ក្រសួងអប់រំយុវជននិងកីឡា អភិវឌ្ឍន៍ ទំនាក់ទំនងសង្គម ទិដ្ឋភាពទូទៅ សុខុមាលភាព ប្រជាធិបតេយ្យ សេដ្ឋកិច្ចជាតិ វប្បធម៌ប្រពៃណី អរិយធម៌ ការចូលរួម ពិចារណា សច្ចធម៌ ផែនការយុទ្ធសាស្ត្រ ពាណិជ្ជកម្មអន្តរជាតិ សកលភាវូបនីយកម្ម កម្មសិទ្ធិបញ្ញា មូលធនបត្រ ហេដ្ឋារចនាសម្ព័ន្ធ កសិឧស្សាហកម្ម ទេសចរណ៍វប្បធម៌ ប្រវត្តិសាស្ត្រ សិទ្ធិមនុស្ស បរិស្ថានវិទ្យា ភូមិសាស្ត្រនយោបាយ ឧត្តមភាព".split(" ")
 };
 
 const generateText = (difficulty: 'easy' | 'medium' | 'hard', length: number = 70) => {
@@ -25,7 +27,7 @@ const generateText = (difficulty: 'easy' | 'medium' | 'hard', length: number = 7
   for (let i = 0; i < length; i++) {
     text += words[Math.floor(Math.random() * words.length)] + " ";
   }
-  return text.trim();
+  return normalizeKhmer(text.trim());
 };
 
 const getKeyCoords = (char: string) => {
@@ -98,6 +100,7 @@ export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
+  const [wpmHistory, setWpmHistory] = useState<{ time: number; wpm: number }[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -119,6 +122,7 @@ export default function Home() {
     setInput("");
     setWpm(0);
     setAccuracy(100);
+    setWpmHistory([]);
   }, [timeLimit, difficulty]);
 
   const reset = () => {
@@ -130,6 +134,7 @@ export default function Home() {
     setIsFinished(false);
     setWpm(0);
     setAccuracy(100);
+    setWpmHistory([]);
     containerRef.current?.focus();
   };
 
@@ -150,7 +155,7 @@ export default function Home() {
 
       if (key === 'Backspace') {
         setInput((prev) => {
-          const next = prev.slice(0, -1);
+          const next = deleteBackward(prev, prev.length).text;
           setGraceErrors((g) => {
             const newG = { ...g };
             delete newG[next.length];
@@ -178,7 +183,7 @@ export default function Home() {
             }, 500); // 500ms grace window
           }
 
-          setInput((prev) => prev + key);
+          setInput((prev) => normalizeKhmer(prev + key));
         } else if (input.length === targetText.length && key === ' ') {
           setIsFinished(true);
         }
@@ -220,6 +225,19 @@ export default function Home() {
       if (timeElapsed > 0) {
         const currentWpm = Math.round((correctChars / 5) / (timeElapsed / 60));
         setWpm(currentWpm);
+        
+        setWpmHistory(prev => {
+          if (prev.length === 0) return [{ time: timeElapsed, wpm: currentWpm }];
+          const last = prev[prev.length - 1];
+          // Update the current second's max or latest WPM, or append next second
+          if (last.time === timeElapsed) {
+            const newHistory = [...prev];
+            newHistory[newHistory.length - 1] = { time: timeElapsed, wpm: currentWpm };
+            return newHistory;
+          } else {
+            return [...prev, { time: timeElapsed, wpm: currentWpm }];
+          }
+        });
       }
     } else {
       setAccuracy(100);
@@ -428,6 +446,54 @@ export default function Home() {
                  </button>
              </div>
           </div>
+        )}
+
+        {/* WPM Chart Canvas */}
+        {wpmHistory.length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 160, marginTop: 40 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="w-full relative z-0"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={wpmHistory} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#D1CEC8" vertical={false} />
+                <XAxis 
+                  dataKey="time" 
+                  stroke="#BCB7AF" 
+                  fontSize={12} 
+                  tickLine={false} 
+                  axisLine={false}
+                  tickFormatter={(val) => `${val}s`}
+                />
+                <YAxis 
+                  stroke="#BCB7AF" 
+                  fontSize={12} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  width={40}
+                />
+                <Tooltip
+                  cursor={{ stroke: '#BCB7AF', strokeWidth: 1, strokeDasharray: '4 4' }}
+                  contentStyle={{ backgroundColor: '#F5F2ED', borderRadius: '12px', border: '1px solid #D1CEC8', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}
+                  itemStyle={{ color: '#8A9A5B', fontWeight: 'bold' }}
+                  labelStyle={{ color: '#434343', fontWeight: '500', marginBottom: '4px' }}
+                  formatter={(value: any) => [`${value} WPM`, 'Speed']}
+                  labelFormatter={(label) => `${label} seconds`}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="wpm"
+                  stroke="#8A9A5B"
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{ r: 6, fill: '#8A9A5B', stroke: '#F5F2ED', strokeWidth: 2 }}
+                  animationDuration={300}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </motion.div>
         )}
 
         {/* Bottom Controls */}
