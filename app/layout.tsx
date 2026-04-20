@@ -13,8 +13,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Keeby Typing',
-  description: 'A minimalist typing playground',
+  title: 'Khmer Typing',
+  description: 'A premium typing playground.',
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {

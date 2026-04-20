@@ -198,11 +198,14 @@ export default function Home() {
     >
       {/* Header */}
       <header className="w-full max-w-[1400px] px-8 py-6 flex items-center justify-between z-10">
-        <div className="flex items-center gap-1.5 cursor-pointer">
-          <span className="text-[#8A9A5B] font-extrabold text-[26px] tracking-tight leading-none">khmer typing</span>
-          <div className="w-5 h-5 bg-[#8A9A5B] rounded-[5px] flex items-center justify-center -mt-0.5 shadow-sm">
-            <Smile className="w-3.5 h-3.5 text-[#F5F2ED]" strokeWidth={3} />
+        <div className="flex items-center gap-2.5 cursor-pointer group">
+          <div className="relative flex items-center justify-center w-[34px] h-[34px] rounded-lg bg-[#8A9A5B] shadow-[0_4px_10px_rgba(138,154,91,0.25),inset_0_2px_0_rgba(255,255,255,0.2)] border border-[#7A8A4B] group-active:scale-95 transition-transform duration-200">
+            <span className="text-[#F5F2ED] font-mono font-bold text-[18px] -mt-1 tracking-tighter">K</span>
+            <div className="absolute bottom-[6px] w-[14px] h-0.5 bg-[#F5F2ED]/60 rounded-full" />
           </div>
+          <span className="text-[#434343] font-extrabold text-[24px] tracking-tight leading-none group-active:scale-[0.98] transition-transform duration-200">
+            khmer<span className="text-[#8A9A5B]">typing</span>
+          </span>
         </div>
 
         <div className="hidden md:flex items-center gap-1.5 text-sm">
