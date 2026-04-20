@@ -178,34 +178,78 @@ export default function Home() {
   }, []);
 
   const renderText = () => {
-    const chars = targetText.split('');
-    return chars.map((char, index) => {
-      let state = 'untyped';
-      if (index < input.length) {
-        state = input[index] === char ? 'correct' : 'incorrect';
-      }
+    const words = targetText.split(' ');
+    let globalIndex = 0;
 
-      const isCursor = index === input.length;
+    return words.map((word, wIdx) => {
+      const isLastWord = wIdx === words.length - 1;
+      const chars = word.split('');
 
       return (
-        <span
-          key={index}
-          className={cn(
-            "relative transition-colors duration-100",
-            state === 'untyped' && "text-[#BCB7AF]", // target light gray
-            state === 'correct' && "text-[#434343]",
-            state === 'incorrect' && "text-[#D27D6B] border-b-2 border-[#D27D6B]"
-          )}
-        >
-          {isCursor && (
-            <motion.span 
-              initial={{ opacity: 1 }}
-              animate={{ opacity: [1, 0, 1] }}
-              transition={{ repeat: Infinity, duration: 1, ease: 'easeInOut' }}
-              className="absolute left-[-1px] bottom-[6px] top-[14px] w-[2px] bg-[#8A9A5B] rounded-full z-10" 
-            />
-          )}
-          {char}
+        <span key={wIdx} className="inline-block">
+          {chars.map((char, cIdx) => {
+            const index = globalIndex++;
+            let state = 'untyped';
+            if (index < input.length) {
+              state = input[index] === char ? 'correct' : 'incorrect';
+            }
+            
+            const isCursor = index === input.length;
+
+            return (
+              <span
+                key={index}
+                className={cn(
+                  "relative transition-colors duration-100",
+                  state === 'untyped' && "text-[#BCB7AF]", // target light gray
+                  state === 'correct' && "text-[#434343]",
+                  state === 'incorrect' && "text-[#D27D6B] border-b-2 border-[#D27D6B]"
+                )}
+              >
+                {isCursor && (
+                  <motion.span 
+                    initial={{ opacity: 1 }}
+                    animate={{ opacity: [1, 0, 1] }}
+                    transition={{ repeat: Infinity, duration: 1, ease: 'easeInOut' }}
+                    className="absolute left-[-1px] bottom-[6px] top-[14px] w-[2px] bg-[#8A9A5B] rounded-full z-10" 
+                  />
+                )}
+                {char}
+              </span>
+            );
+          })}
+          
+          {/* Space Character */}
+          {!isLastWord && (() => {
+            const index = globalIndex++;
+            let state = 'untyped';
+            if (index < input.length) {
+              state = input[index] === ' ' ? 'correct' : 'incorrect';
+            }
+            const isCursor = index === input.length;
+
+            return (
+              <span
+                key={index}
+                className={cn(
+                  "relative transition-colors duration-100",
+                  state === 'untyped' && "text-[#BCB7AF]",
+                  state === 'correct' && "text-[#434343]",
+                  state === 'incorrect' && "bg-[#D27D6B]/30" // highlight missed space
+                )}
+              >
+                {isCursor && (
+                  <motion.span 
+                    initial={{ opacity: 1 }}
+                    animate={{ opacity: [1, 0, 1] }}
+                    transition={{ repeat: Infinity, duration: 1, ease: 'easeInOut' }}
+                    className="absolute left-[0px] bottom-[6px] top-[14px] w-[2px] bg-[#8A9A5B] rounded-full z-10" 
+                  />
+                )}
+                {" "}
+              </span>
+            );
+          })()}
         </span>
       );
     });
@@ -277,7 +321,7 @@ export default function Home() {
         {/* Typing Area */}
         <div 
           className={cn(
-            "font-mono text-[38px] leading-[1.65] tracking-tight relative -translate-x-[2px] overflow-hidden max-h-[190px]",
+            "font-mono text-[38px] leading-[1.65] font-light relative -translate-x-[2px] overflow-hidden max-h-[190px]",
             isFinished && "opacity-50 blur-[2px] transition-all duration-300 pointer-events-none"
           )}
           style={{ wordSpacing: '0.15em' }}
