@@ -418,7 +418,7 @@ export default function Home() {
         {/* Typing Area */}
         <div 
           className={cn(
-            "font-mono text-[38px] leading-[1.65] tracking-normal font-light relative -translate-x-[2px] overflow-hidden max-h-[188px]",
+            "font-[family-name:var(--font-khmer)] text-[38px] leading-[1.65] tracking-normal font-light relative -translate-x-[2px] overflow-hidden max-h-[188px]",
             isFinished && "opacity-50 blur-[2px] transition-all duration-300 pointer-events-none"
           )}
         >
