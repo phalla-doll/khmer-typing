@@ -5,7 +5,20 @@ import { Volume2, Trophy, RotateCcw, Smile, User, Clock, ChevronRight } from 'lu
 import { cn } from '@/lib/utils';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 
-const TARGET_TEXT = "try hand learn page over old should want thought still eye than few last sea change would mean people who any group such form water point great very point set sentence help where state low point write line cause point those place great spell turn help follow back around look right point through form write same move right boy long open hand old right also same form around many write hand old water back turn those look spell form group many line through people mean text some time what thing your good make word then use out look just test typing test khmer run fast quickly speed accuracy over many try hand learn";
+const WORD_LISTS = {
+  easy: "the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us".split(" "),
+  medium: "try hand learn page over old should want thought still eye than few last sea change would mean people who any group such form water point great very point set sentence help where state low point write line cause point those place great spell turn help follow back around look right point through form write same move right boy long open hand old right also same form around many write hand old water back turn those look spell form group many line through people mean text some time what thing your good make word then use out look just test typing test khmer run fast quickly speed accuracy over many try hand learn".split(" "),
+  hard: "algorithm asynchronous callback function recursive iteration loop object-oriented programming polymorphism inheritance encapsulation version control repository checkout continuous integration deployment pipeline containerization orchestration kubernetes replicas balancer injection vulnerability cross-site vulnerable endpoints architecture network hidden layers quantum computing superposition entanglement concurrency threading deadlocks algorithms optimization heuristic database schema migration normalization transactions rollback commit indexing querying fetching parsing rendering serialization encryption decryption authentication authorization middleware interceptors microservices modularity paradigms semantics typography semantics".split(" ")
+};
+
+const generateText = (difficulty: 'easy' | 'medium' | 'hard', length: number = 70) => {
+  const words = WORD_LISTS[difficulty];
+  let text = "";
+  for (let i = 0; i < length; i++) {
+    text += words[Math.floor(Math.random() * words.length)] + " ";
+  }
+  return text.trim();
+};
 
 function MagneticWrapper({ children }: { children: React.ReactNode }) {
   const x = useMotionValue(0);
@@ -42,6 +55,8 @@ function MagneticWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export default function Home() {
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [targetText, setTargetText] = useState("");
   const [timeLimit, setTimeLimit] = useState(15);
   const [input, setInput] = useState("");
   const [timeLeft, setTimeLeft] = useState(15);
@@ -52,20 +67,27 @@ export default function Home() {
 
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Initialize text first time
+  useEffect(() => {
+    setTargetText(generateText(difficulty));
+  }, []);
+
   useEffect(() => {
     containerRef.current?.focus();
   }, []);
 
   useEffect(() => {
+    setTargetText(generateText(difficulty));
     setTimeLeft(timeLimit);
     setIsActive(false);
     setIsFinished(false);
     setInput("");
     setWpm(0);
     setAccuracy(100);
-  }, [timeLimit]);
+  }, [timeLimit, difficulty]);
 
   const reset = () => {
+    setTargetText(generateText(difficulty));
     setInput("");
     setTimeLeft(timeLimit);
     setIsActive(false);
@@ -97,14 +119,14 @@ export default function Home() {
 
       if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         // Prevent typing past the length
-        if (input.length < TARGET_TEXT.length) {
+        if (input.length < targetText.length) {
           setInput((prev) => prev + key);
-        } else if (input.length === TARGET_TEXT.length && key === ' ') {
+        } else if (input.length === targetText.length && key === ' ') {
           setIsFinished(true);
         }
       }
     },
-    [isActive, isFinished, input.length]
+    [isActive, isFinished, input.length, targetText]
   );
 
   // Timer logic
@@ -126,7 +148,7 @@ export default function Home() {
     if (input.length > 0) {
       let correctChars = 0;
       for (let i = 0; i < input.length; i++) {
-        if (input[i] === TARGET_TEXT[i]) {
+        if (input[i] === targetText[i]) {
           correctChars++;
         }
       }
@@ -144,7 +166,7 @@ export default function Home() {
       setAccuracy(100);
       setWpm(0);
     }
-  }, [input, timeLeft, timeLimit]);
+  }, [input, timeLeft, timeLimit, targetText]);
 
   // Handle focus loss/gain to make sure we keep focus for typing
   useEffect(() => {
@@ -156,7 +178,7 @@ export default function Home() {
   }, []);
 
   const renderText = () => {
-    const chars = TARGET_TEXT.split('');
+    const chars = targetText.split('');
     return chars.map((char, index) => {
       let state = 'untyped';
       if (index < input.length) {
@@ -262,7 +284,7 @@ export default function Home() {
         >
           {renderText()}
           {/* Append cursor at the end if fully typed */}
-          {input.length === TARGET_TEXT.length && (
+          {input.length === targetText.length && (
              <span className="relative">
                <motion.span 
                   initial={{ opacity: 1 }}
@@ -287,26 +309,47 @@ export default function Home() {
         )}
 
         {/* Bottom Controls */}
-        <div className="flex items-center justify-between w-full mt-16 text-[13px] font-semibold tracking-wide">
-          <div className="flex items-center gap-1.5 md:gap-4">
-            {[15, 30, 60].map((t) => (
-              <div 
-                key={t}
-                onClick={() => setTimeLimit(t)}
-                className={cn(
-                  "flex items-center gap-2.5 px-4 py-2 flex-shrink-0 cursor-pointer rounded-full transition-all duration-300 shadow-sm border",
-                  timeLimit === t 
-                    ? "bg-[#E8E4DE] text-[#434343] border-[#D1CEC8]"
-                    : "text-[#434343]/50 border-transparent hover:text-[#434343] hover:bg-[#E8E4DE]/50"
-                )}
-              >
-                <Clock className={cn("w-[14px] h-[14px]", timeLimit === t ? "text-[#8A9A5B]" : "text-current")} />
-                {t}s
-              </div>
-            ))}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between w-full mt-16 text-[13px] font-semibold tracking-wide gap-4 md:gap-0">
+          <div className="flex items-center gap-1.5 md:gap-6">
+            <div className="flex items-center gap-1.5 bg-[#E8E4DE]/50 rounded-full p-1 border border-transparent shadow-sm">
+              {['easy', 'medium', 'hard'].map((d) => (
+                <div 
+                  key={d}
+                  onClick={() => setDifficulty(d as 'easy' | 'medium' | 'hard')}
+                  className={cn(
+                    "px-4 py-2 cursor-pointer rounded-full transition-all duration-300 capitalize",
+                    difficulty === d 
+                      ? "bg-[#F5F2ED] text-[#434343] shadow-sm border border-[#D1CEC8]"
+                      : "text-[#434343]/50 border border-transparent hover:text-[#434343]"
+                  )}
+                >
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            <div className="w-px h-6 bg-[#D1CEC8] hidden md:block" />
+
+            <div className="flex items-center gap-1.5">
+              {[15, 30, 60].map((t) => (
+                <div 
+                  key={t}
+                  onClick={() => setTimeLimit(t)}
+                  className={cn(
+                    "flex items-center gap-2.5 px-4 py-2 flex-shrink-0 cursor-pointer rounded-full transition-all duration-300 shadow-sm border",
+                    timeLimit === t 
+                      ? "bg-[#E8E4DE] text-[#434343] border-[#D1CEC8]"
+                      : "text-[#434343]/50 border-transparent hover:text-[#434343] hover:bg-[#E8E4DE]/50"
+                  )}
+                >
+                  <Clock className={cn("w-[14px] h-[14px]", timeLimit === t ? "text-[#8A9A5B]" : "text-current")} />
+                  {t}s
+                </div>
+              ))}
+            </div>
           </div>
           
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 self-end md:self-auto">
             <button 
               onClick={reset} 
               className="flex items-center gap-2 text-[#434343]/50 hover:text-[#434343] active:scale-[0.96] transition-all duration-300 font-semibold"
