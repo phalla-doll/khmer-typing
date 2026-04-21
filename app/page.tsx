@@ -184,15 +184,15 @@ export default function Home() {
     soundManagerRef.current = new SoundManager();
   }, []);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   // Initialize text first time
   useEffect(() => {
     setTargetText(generateText(difficulty));
-  }, []);
-
-  useEffect(() => {
-    containerRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -215,59 +215,61 @@ export default function Home() {
     setWpm(0);
     setAccuracy(100);
     setWpmHistory([]);
-    containerRef.current?.focus();
+    inputRef.current?.focus();
   };
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === ' ') {
-        e.preventDefault();
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isFinished) return;
+    
+    const newVal = e.target.value;
+    
+    const oldCmp = compareTyping(targetText, input);
+    const newCmp = compareTyping(targetText, newVal);
+
+    if (newVal.length < input.length) {
+      if (newVal.length >= 0) {
+        soundManagerRef.current?.playClick(0.7, isMuted);
       }
-
-      if (isFinished) return;
-
-      const key = e.key;
-
-      if (!isActive && key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        setIsActive(true);
+    } else if (newVal.length > input.length) {
+      if (newCmp.correctPrefixLength > oldCmp.correctPrefixLength && newCmp.correctPrefixLength === newCmp.normalizedTyped.length) {
+        soundManagerRef.current?.playClick(1.0 + (Math.random() * 0.1), isMuted);
+      } else {
+        soundManagerRef.current?.playError(isMuted);
       }
+    }
 
-      if (key === 'Backspace') {
-        setInput((prev) => {
-          if (prev.length > 0) {
-            soundManagerRef.current?.playClick(0.7, isMuted);
-          }
-          return deleteBackward(prev, prev.length).text;
-        });
-        return;
-      }
+    if (newCmp.isComplete && !isFinished) {
+      soundManagerRef.current?.playFinish(isMuted);
+      setTimeout(() => {
+        setIsFinished(true);
+        setIsActive(false);
+      }, 0);
+    }
 
-      if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        setInput((prev) => {
-          const next = normalizeKhmer(prev + key);
-          const cmp = compareTyping(targetText, next);
-          
-          if (cmp.correctPrefixLength === cmp.normalizedTyped.length) {
-            // Typing perfectly
-            soundManagerRef.current?.playClick(1.0 + (Math.random() * 0.1), isMuted);
-          } else {
-            // Made an error
-            soundManagerRef.current?.playError(isMuted);
-          }
+    if (!isActive && newVal.length > 0) {
+      setIsActive(true);
+    }
 
-          if (cmp.isComplete) {
-            soundManagerRef.current?.playFinish(isMuted);
-            setTimeout(() => {
-              setIsFinished(true);
-              setIsActive(false);
-            }, 0);
-          }
-          return next;
-        });
-      }
-    },
-    [isActive, isFinished, targetText, isMuted]
-  );
+    setInput(newVal);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isFinished) {
+      e.preventDefault();
+      return;
+    }
+    
+    if (e.key === 'Backspace') {
+      // Custom cluster deletion logic for direct backspaces to maintain khmer-segment cluster deletion
+      e.preventDefault();
+      setInput((prev) => {
+        if (prev.length > 0) {
+          soundManagerRef.current?.playClick(0.7, isMuted);
+        }
+        return deleteBackward(prev, prev.length).text;
+      });
+    }
+  };
 
   // Timer logic
   useEffect(() => {
@@ -324,7 +326,7 @@ export default function Home() {
   // Handle focus loss/gain to make sure we keep focus for typing
   useEffect(() => {
     const handleClick = () => {
-      containerRef.current?.focus();
+      inputRef.current?.focus();
     };
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
@@ -395,10 +397,18 @@ export default function Home() {
   return (
     <div 
       className="min-h-screen flex flex-col items-center select-none outline-none"
-      tabIndex={0}
-      ref={containerRef}
-      onKeyDown={handleKeyDown}
     >
+      <input 
+        ref={inputRef}
+        value={input}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        className="absolute w-0 h-0 opacity-0 pointer-events-none"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck="false"
+      />
       {/* Header */}
       <header className="w-full max-w-[1400px] px-8 py-6 flex items-center justify-between z-10">
         <div className="flex items-center gap-2.5 cursor-pointer group">
@@ -422,7 +432,7 @@ export default function Home() {
               e.stopPropagation();
               e.currentTarget.blur();
               setIsMuted(!isMuted);
-              containerRef.current?.focus();
+              inputRef.current?.focus();
             }}
             className="flex items-center justify-center w-10 h-10 rounded-full bg-[#E8E4DE] hover:bg-[#DDD9D2] border border-transparent hover:border-[#D1CEC8] shadow-sm outline-none active:scale-[0.98] transition-all duration-300"
           >
