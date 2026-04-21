@@ -201,6 +201,7 @@ export default function Home() {
     setIsActive(false);
     setIsFinished(false);
     setInput("");
+    if (inputRef.current) inputRef.current.value = "";
     setWpm(0);
     setAccuracy(100);
     setWpmHistory([]);
@@ -209,6 +210,7 @@ export default function Home() {
   const reset = () => {
     setTargetText(generateText(difficulty));
     setInput("");
+    if (inputRef.current) inputRef.current.value = "";
     setTimeLeft(timeLimit);
     setIsActive(false);
     setIsFinished(false);
@@ -218,10 +220,8 @@ export default function Home() {
     inputRef.current?.focus();
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isFinished) return;
-    
-    const newVal = e.target.value;
+  const updateInputState = (newValRaw: string) => {
+    const newVal = normalizeKhmer(newValRaw);
     
     const oldCmp = compareTyping(targetText, input);
     const newCmp = compareTyping(targetText, newVal);
@@ -253,6 +253,14 @@ export default function Home() {
     setInput(newVal);
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isFinished) {
+      if (inputRef.current) inputRef.current.value = input;
+      return;
+    }
+    updateInputState(e.target.value);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (isFinished) {
       e.preventDefault();
@@ -260,14 +268,15 @@ export default function Home() {
     }
     
     if (e.key === 'Backspace') {
-      // Custom cluster deletion logic for direct backspaces to maintain khmer-segment cluster deletion
       e.preventDefault();
-      setInput((prev) => {
-        if (prev.length > 0) {
-          soundManagerRef.current?.playClick(0.7, isMuted);
+      if (inputRef.current) {
+        const currentVal = inputRef.current.value;
+        if (currentVal.length > 0) {
+          const nextVal = deleteBackward(currentVal, currentVal.length).text;
+          inputRef.current.value = nextVal;
+          updateInputState(nextVal);
         }
-        return deleteBackward(prev, prev.length).text;
-      });
+      }
     }
   };
 
@@ -400,7 +409,6 @@ export default function Home() {
     >
       <input 
         ref={inputRef}
-        value={input}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         className="absolute w-0 h-0 opacity-0 pointer-events-none"
