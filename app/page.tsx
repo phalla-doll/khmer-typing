@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Volume2, Trophy, RotateCcw, Smile, User, Clock, ChevronRight, X } from 'lucide-react';
+import { Volume2, VolumeX, Trophy, RotateCcw, Smile, User, Clock, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'motion/react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -64,6 +64,106 @@ function MagneticWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+class SoundManager {
+  private ctx: AudioContext | null = null;
+
+  private init() {
+    if (typeof window === 'undefined') return false;
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        this.ctx = new AudioCtx();
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+      }
+    }
+    return !!this.ctx;
+  }
+
+  playClick(pitch: number = 1, muted: boolean) {
+    if (muted) return;
+    if (!this.init()) return;
+    
+    if (this.ctx!.state === 'suspended') this.ctx!.resume();
+
+    const t = this.ctx!.currentTime;
+    const osc = this.ctx!.createOscillator();
+    const gain = this.ctx!.createGain();
+    
+    osc.connect(gain);
+    gain.connect(this.ctx!.destination);
+    
+    osc.type = 'sine';
+    
+    osc.frequency.setValueAtTime(400 * pitch, t);
+    osc.frequency.exponentialRampToValueAtTime(100 * pitch, t + 0.05);
+    
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.1, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+
+  playError(muted: boolean) {
+    if (muted) return;
+    if (!this.init()) return;
+    
+    if (this.ctx!.state === 'suspended') this.ctx!.resume();
+
+    const t = this.ctx!.currentTime;
+    const osc = this.ctx!.createOscillator();
+    const gain = this.ctx!.createGain();
+    
+    osc.connect(gain);
+    gain.connect(this.ctx!.destination);
+    
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(80, t + 0.1);
+    
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.1, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+    
+    osc.start(t);
+    osc.stop(t + 0.1);
+  }
+
+  playFinish(muted: boolean) {
+    if (muted) return;
+    if (!this.init()) return;
+
+    if (this.ctx!.state === 'suspended') this.ctx!.resume();
+
+    const t = this.ctx!.currentTime;
+    
+    const playNote = (freq: number, startOff: number) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t + startOff);
+      
+      gain.gain.setValueAtTime(0, t + startOff);
+      gain.gain.linearRampToValueAtTime(0.1, t + startOff + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + startOff + 0.5);
+      
+      osc.start(t + startOff);
+      osc.stop(t + startOff + 0.5);
+    };
+
+    playNote(523.25, 0); // C5
+    playNote(659.25, 0.1); // E5
+    playNote(783.99, 0.2); // G5
+    playNote(1046.50, 0.3); // C6
+  }
+}
+
 export default function Home() {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [targetText, setTargetText] = useState("");
@@ -76,6 +176,13 @@ export default function Home() {
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
   const [wpmHistory, setWpmHistory] = useState<{ time: number; wpm: number }[]>([]);
+  const [isMuted, setIsMuted] = useState(false);
+  
+  const soundManagerRef = useRef<SoundManager | null>(null);
+
+  useEffect(() => {
+    soundManagerRef.current = new SoundManager();
+  }, []);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -126,7 +233,12 @@ export default function Home() {
       }
 
       if (key === 'Backspace') {
-        setInput((prev) => deleteBackward(prev, prev.length).text);
+        setInput((prev) => {
+          if (prev.length > 0) {
+            soundManagerRef.current?.playClick(0.7, isMuted);
+          }
+          return deleteBackward(prev, prev.length).text;
+        });
         return;
       }
 
@@ -135,7 +247,16 @@ export default function Home() {
           const next = normalizeKhmer(prev + key);
           const cmp = compareTyping(targetText, next);
           
+          if (cmp.correctPrefixLength === cmp.normalizedTyped.length) {
+            // Typing perfectly
+            soundManagerRef.current?.playClick(1.0 + (Math.random() * 0.1), isMuted);
+          } else {
+            // Made an error
+            soundManagerRef.current?.playError(isMuted);
+          }
+
           if (cmp.isComplete) {
+            soundManagerRef.current?.playFinish(isMuted);
             setTimeout(() => {
               setIsFinished(true);
               setIsActive(false);
@@ -145,7 +266,7 @@ export default function Home() {
         });
       }
     },
-    [isActive, isFinished, targetText]
+    [isActive, isFinished, targetText, isMuted]
   );
 
   // Timer logic
@@ -156,11 +277,12 @@ export default function Home() {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
     } else if (timeLeft === 0 && isActive) {
+      soundManagerRef.current?.playFinish(isMuted);
       setIsFinished(true);
       setIsActive(false);
     }
     return () => clearInterval(interval);
-  }, [isActive, timeLeft, isFinished]);
+  }, [isActive, timeLeft, isFinished, isMuted]);
 
   // Calculate stats dynamically using new khmer-segment 0.8.1 typing metrics
   useEffect(() => {
@@ -295,8 +417,20 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="flex items-center justify-center w-10 h-10 rounded-full bg-[#E8E4DE] hover:bg-[#DDD9D2] border border-transparent hover:border-[#D1CEC8] shadow-sm outline-none active:scale-[0.98] transition-all duration-300">
-            <Volume2 className="w-[18px] h-[18px] text-[#434343]/80" strokeWidth={2.5} />
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              e.currentTarget.blur();
+              setIsMuted(!isMuted);
+              containerRef.current?.focus();
+            }}
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-[#E8E4DE] hover:bg-[#DDD9D2] border border-transparent hover:border-[#D1CEC8] shadow-sm outline-none active:scale-[0.98] transition-all duration-300"
+          >
+            {isMuted ? (
+              <VolumeX className="w-[18px] h-[18px] text-[#434343]/80" strokeWidth={2.5} />
+            ) : (
+              <Volume2 className="w-[18px] h-[18px] text-[#434343]/80" strokeWidth={2.5} />
+            )}
           </button>
           <button 
             onClick={() => setShowLeaderboard(true)}
