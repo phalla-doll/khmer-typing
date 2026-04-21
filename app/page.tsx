@@ -267,7 +267,7 @@ export default function Home() {
       return;
     }
     
-    if (e.key === 'Backspace') {
+    if (e.key === 'Backspace' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
       e.preventDefault();
       if (inputRef.current) {
         const currentVal = inputRef.current.value;
@@ -360,7 +360,7 @@ export default function Home() {
 
       const isCursor = index === inputClusters.length;
       const isSpace = cluster === ' ';
-      const displayChar = (isSpace && state === 'incorrect') ? (inputClusters[index] || " ") : cluster;
+      const displayChar = isSpace ? '\u00A0' : cluster;
 
       const span = (
         <span
