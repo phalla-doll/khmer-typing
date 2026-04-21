@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Volume2, Trophy, RotateCcw, Smile, User, Clock, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'motion/react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { normalizeKhmer, deleteBackward } from 'khmer-segment';
+import { normalizeKhmer, deleteBackward, compareTyping, computeTypingMetrics, splitClusters, type TypingComparison, type TypingUnitState } from 'khmer-segment';
 
 const MOCK_LEADERBOARD = [
   { rank: 1, name: "typing_god", wpm: 154, acc: 99 },
@@ -28,30 +28,6 @@ const generateText = (difficulty: 'easy' | 'medium' | 'hard', length: number = 7
     text += words[Math.floor(Math.random() * words.length)] + " ";
   }
   return normalizeKhmer(text.trim());
-};
-
-const getKeyCoords = (char: string) => {
-  if (char === ' ') return [{ x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 3 }, { x: 5, y: 3 }, { x: 6, y: 3 }];
-  const rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm,."];
-  const c = char.toLowerCase();
-  for (let y = 0; y < rows.length; y++) {
-    const x = rows[y].indexOf(c);
-    if (x !== -1) return [{ x, y }];
-  }
-  return [];
-};
-
-const isAdjacent = (char1: string, char2: string) => {
-  // If either char isn't mapped, fail
-  const p1s = getKeyCoords(char1);
-  const p2s = getKeyCoords(char2);
-  for (const p1 of p1s) {
-    for (const p2 of p2s) {
-      // Direct adjacency metric
-      if (Math.abs(p1.x - p2.x) <= 1 && Math.abs(p1.y - p2.y) <= 1) return true;
-    }
-  }
-  return false;
 };
 
 function MagneticWrapper({ children }: { children: React.ReactNode }) {
@@ -93,7 +69,6 @@ export default function Home() {
   const [targetText, setTargetText] = useState("");
   const [timeLimit, setTimeLimit] = useState(15);
   const [input, setInput] = useState("");
-  const [graceErrors, setGraceErrors] = useState<Record<number, boolean>>({});
   const [timeLeft, setTimeLeft] = useState(15);
   const [isActive, setIsActive] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
@@ -114,7 +89,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    setGraceErrors({});
     setTargetText(generateText(difficulty));
     setTimeLeft(timeLimit);
     setIsActive(false);
@@ -126,7 +100,6 @@ export default function Home() {
   }, [timeLimit, difficulty]);
 
   const reset = () => {
-    setGraceErrors({});
     setTargetText(generateText(difficulty));
     setInput("");
     setTimeLeft(timeLimit);
@@ -140,7 +113,6 @@ export default function Home() {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      // Prevent default scrolling for spacebar
       if (e.key === ' ') {
         e.preventDefault();
       }
@@ -154,42 +126,26 @@ export default function Home() {
       }
 
       if (key === 'Backspace') {
-        setInput((prev) => {
-          const next = deleteBackward(prev, prev.length).text;
-          setGraceErrors((g) => {
-            const newG = { ...g };
-            delete newG[next.length];
-            return newG;
-          });
-          return next;
-        });
+        setInput((prev) => deleteBackward(prev, prev.length).text);
         return;
       }
 
       if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        // Prevent typing past the length
-        if (input.length < targetText.length) {
-          const targetChar = targetText[input.length];
-          const currentIndex = input.length;
-
-          if (key !== targetChar && isAdjacent(targetChar, key)) {
-            setGraceErrors((prev) => ({ ...prev, [currentIndex]: true }));
+        setInput((prev) => {
+          const next = normalizeKhmer(prev + key);
+          const cmp = compareTyping(targetText, next);
+          
+          if (cmp.isComplete) {
             setTimeout(() => {
-              setGraceErrors((prev) => {
-                const next = { ...prev };
-                delete next[currentIndex];
-                return next;
-              });
-            }, 500); // 500ms grace window
+              setIsFinished(true);
+              setIsActive(false);
+            }, 0);
           }
-
-          setInput((prev) => normalizeKhmer(prev + key));
-        } else if (input.length === targetText.length && key === ' ') {
-          setIsFinished(true);
-        }
+          return next;
+        });
       }
     },
-    [isActive, isFinished, input.length, targetText]
+    [isActive, isFinished, targetText]
   );
 
   // Timer logic
@@ -206,36 +162,34 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [isActive, timeLeft, isFinished]);
 
-  // Calculate stats dynamically
+  // Calculate stats dynamically using new khmer-segment 0.8.1 typing metrics
   useEffect(() => {
     if (input.length > 0) {
-      let correctChars = 0;
-      for (let i = 0; i < input.length; i++) {
-        // Forgive buffered errors inside timing block so WPM does not drop
-        if (input[i] === targetText[i] || graceErrors[i]) {
-          correctChars++;
-        }
-      }
+      const cmp = compareTyping(targetText, input);
+      const timeElapsedMs = (timeLimit - timeLeft) * 1000;
       
-      const acc = Math.round((correctChars / input.length) * 100);
-      setAccuracy(acc);
+      const metrics = computeTypingMetrics({
+        correctCharCount: cmp.correctPrefixLength,
+        totalTypedCharCount: cmp.normalizedTyped.length,
+        elapsedMs: timeElapsedMs > 0 ? timeElapsedMs : 1000, 
+      });
 
-      const timeElapsed = timeLimit - timeLeft;
-      // WPM calculation only if time elapsed is somewhat reasonable to avoid Infinity
-      if (timeElapsed > 0) {
-        const currentWpm = Math.round((correctChars / 5) / (timeElapsed / 60));
+      setAccuracy(Math.round(metrics.accuracy));
+
+      if (timeElapsedMs > 0) {
+        const currentWpm = Math.round(metrics.wpm);
         setWpm(currentWpm);
         
         setWpmHistory(prev => {
-          if (prev.length === 0) return [{ time: timeElapsed, wpm: currentWpm }];
+          const timeElapsedSec = timeLimit - timeLeft;
+          if (prev.length === 0) return [{ time: timeElapsedSec, wpm: currentWpm }];
           const last = prev[prev.length - 1];
-          // Update the current second's max or latest WPM, or append next second
-          if (last.time === timeElapsed) {
+          if (last.time === timeElapsedSec) {
             const newHistory = [...prev];
-            newHistory[newHistory.length - 1] = { time: timeElapsed, wpm: currentWpm };
+            newHistory[newHistory.length - 1] = { time: timeElapsedSec, wpm: currentWpm };
             return newHistory;
           } else {
-            return [...prev, { time: timeElapsed, wpm: currentWpm }];
+            return [...prev, { time: timeElapsedSec, wpm: currentWpm }];
           }
         });
       }
@@ -243,7 +197,7 @@ export default function Home() {
       setAccuracy(100);
       setWpm(0);
     }
-  }, [input, timeLeft, timeLimit, targetText, graceErrors]);
+  }, [input, timeLeft, timeLimit, targetText]);
 
   // Handle focus loss/gain to make sure we keep focus for typing
   useEffect(() => {
@@ -254,99 +208,66 @@ export default function Home() {
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
+  const targetClusters = useMemo(() => splitClusters(targetText), [targetText]);
+  const inputClusters = useMemo(() => splitClusters(input), [input]);
+
   const renderText = () => {
-    const words = targetText.split(' ');
-    let globalIndex = 0;
+    let currentWord: React.ReactNode[] = [];
+    const words: React.ReactNode[][] = [];
 
-    return words.map((word, wIdx) => {
-      const isLastWord = wIdx === words.length - 1;
-      const chars = word.split('');
+    targetClusters.forEach((cluster, index) => {
+      let state = 'untyped';
+      if (index < inputClusters.length) {
+        if (inputClusters[index] === cluster) {
+          state = 'correct';
+        } else {
+          state = 'incorrect';
+        }
+      }
 
-      return (
-        <span key={wIdx} className="inline-block">
-          {chars.map((char, cIdx) => {
-            const index = globalIndex++;
-            let state = 'untyped';
-            if (index < input.length) {
-              if (input[index] === char) {
-                state = 'correct';
-              } else if (graceErrors[index]) {
-                state = 'grace';
-              } else {
-                state = 'incorrect';
-              }
-            }
-            
-            const isCursor = index === input.length;
+      const isCursor = index === inputClusters.length;
+      const isSpace = cluster === ' ';
+      const displayChar = (isSpace && state === 'incorrect') ? (inputClusters[index] || " ") : cluster;
 
-            return (
-              <span
-                key={index}
-                className={cn(
-                  "relative transition-colors duration-100",
-                  state === 'untyped' && "text-[#BCB7AF]", // untyped characters
-                  state === 'correct' && "text-[#434343]", // core color
-                  state === 'grace' && "text-[#D2A76B] bg-[#D2A76B]/20 rounded-[2px]", // Amber forgiving buffer
-                  state === 'incorrect' && "text-[#D27D6B] bg-[#D27D6B]/20 rounded-[2px]" // harsh visual error
-                )}
-              >
-                {isCursor && (
-                  <motion.span 
-                    initial={{ opacity: 1 }}
-                    animate={{ opacity: [1, 0, 1] }}
-                    transition={{ repeat: Infinity, duration: 1, ease: 'easeInOut' }}
-                    className="absolute left-[-1px] bottom-[6px] top-[14px] w-[2px] bg-[#8A9A5B] rounded-full z-10" 
-                  />
-                )}
-                {char}
-              </span>
-            );
-          })}
-          
-          {/* Space Character */}
-          {!isLastWord && (() => {
-            const index = globalIndex++;
-            let state = 'untyped';
-            if (index < input.length) {
-              if (input[index] === ' ') {
-                state = 'correct';
-              } else if (graceErrors[index]) {
-                state = 'grace';
-              } else {
-                state = 'incorrect';
-              }
-            }
-            const isCursor = index === input.length;
-
-            // Display what the user incorrectly typed instead of an invisible space
-            const displayChar = (state === 'incorrect' || state === 'grace') ? input[index] : " ";
-
-            return (
-              <span
-                key={index}
-                className={cn(
-                  "relative transition-colors duration-100",
-                  state === 'untyped' && "text-[#BCB7AF]", 
-                  state === 'correct' && "text-[#434343]",
-                  state === 'grace' && "text-[#D2A76B] bg-[#D2A76B]/20 rounded-[2px]", // Amber error buffer over space
-                  state === 'incorrect' && "text-[#D27D6B] bg-[#D27D6B]/30 rounded-[2px]" // error over space
-                )}
-              >
-                {isCursor && (
-                  <motion.span 
-                    initial={{ opacity: 1 }}
-                    animate={{ opacity: [1, 0, 1] }}
-                    transition={{ repeat: Infinity, duration: 1, ease: 'easeInOut' }}
-                    className="absolute left-[0px] bottom-[6px] top-[14px] w-[2px] bg-[#8A9A5B] rounded-full z-10" 
-                  />
-                )}
-                {displayChar}
-              </span>
-            );
-          })()}
+      const span = (
+        <span
+          key={index}
+          className={cn(
+            "relative transition-colors duration-100",
+            state === 'untyped' && "text-[#BCB7AF]", 
+            state === 'correct' && (isSpace ? "" : "text-[#434343]"),
+            state === 'incorrect' && "text-[#D27D6B] bg-[#D27D6B]/20 rounded-[2px]" 
+          )}
+        >
+          {isCursor && (
+            <motion.span 
+              initial={{ opacity: 1 }}
+              animate={{ opacity: [1, 0, 1] }}
+              transition={{ repeat: Infinity, duration: 1, ease: 'easeInOut' }}
+              className="absolute left-[0px] bottom-[6px] top-[14px] w-[2px] bg-[#8A9A5B] rounded-full z-10" 
+            />
+          )}
+          {displayChar}
         </span>
       );
+
+      currentWord.push(span);
+      
+      if (isSpace) {
+        words.push(currentWord);
+        currentWord = [];
+      }
     });
+
+    if (currentWord.length > 0) {
+      words.push(currentWord);
+    }
+
+    return words.map((wordNodes, wIdx) => (
+      <span key={wIdx} className="inline-block">
+        {wordNodes}
+      </span>
+    ));
   };
 
   return (
@@ -424,7 +345,7 @@ export default function Home() {
         >
           {renderText()}
           {/* Append cursor at the end if fully typed */}
-          {input.length === targetText.length && (
+          {inputClusters.length >= targetClusters.length && (
              <span className="relative">
                <motion.span 
                   initial={{ opacity: 1 }}
